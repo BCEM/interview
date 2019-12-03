@@ -9,8 +9,7 @@ namespace InterviewTask
     public class Items<TKey>
     {
         private int time = 0;
-
-        public int Now => Interlocked.Increment(ref time);
+        public int Now => Interlocked.Increment(ref time);       
 
         private class Item
         {
@@ -21,26 +20,28 @@ namespace InterviewTask
             public int UpdatedAt { get; set; }
         }
 
-        private readonly ICollection<Item> items = new List<Item>();
+        private readonly Dictionary<TKey, Item> items = new Dictionary<TKey, Item>();
+        
 
-        public void Add(TKey id)
+        public bool Add(TKey id)
         {
-            var item = items.SingleOrDefault(i => i.Id.Equals(id));
-            if (item != null)
-                throw new Exception($"Element with key '{id}' was already added");
+            if (items.ContainsKey(id))
+                return false;
 
-            items.Add(new Item
+            items.Add(id, new Item
             {
                 Id = id,
                 UpdatedAt = Now
             });
+            return true;
         }
 
         public void Update(TKey id)
         {
-            var item = items.SingleOrDefault(i => i.Id.Equals(id));
-            if (item == null)
+            if (!items.ContainsKey(id))
                 throw new Exception($"Element with key '{id}' not found");
+            
+            var item = items[id];
 
             if (item.IsDeleted)
             {
@@ -51,9 +52,10 @@ namespace InterviewTask
 
         public void Delete(TKey id)
         {
-            var item = items.SingleOrDefault(i => i.Id.Equals(id));
-            if (item == null)
+            if (!items.ContainsKey(id))
                 throw new Exception($"Element with key '{id}' not found");
+
+            var item = items[id];
 
             if (!item.IsDeleted)
             {
@@ -64,17 +66,35 @@ namespace InterviewTask
 
         public IEnumerable<TKey> GetActiveItems()
         {
-            return items.Where(i => !i.IsDeleted).OrderByDescending(i => i.UpdatedAt).Select(i => i.Id);
+            return items.Values
+                .Where(i => !i.IsDeleted)
+                .OrderByDescending(i => i.Id)
+                .Select(i => i.Id);
         }
 
         public IEnumerable<TKey> GetDeletedItems()
         {
-            return items.Where(i => i.IsDeleted).OrderBy(i => i.UpdatedAt).Select(i => i.Id);
+            return items.Values.Where(i => i.IsDeleted).OrderBy(i => i.UpdatedAt).Select(i => i.Id);
         }
 
         public void SetActiveItems(IEnumerable<TKey> ids)
-        {
-            throw new NotImplementedException("Method Items.SetActiveItems is not implemented, you must implement it first");
+        {            
+            foreach (var id in ids)
+            {
+                if (items.ContainsKey(id))
+                {
+                    Update(id);
+                }
+                else
+                {
+                    Add(id);
+                }
+            }
+
+            foreach (var id in items.Keys.Except(ids))
+            {
+                Delete(id);
+            }            
         }
     }
 
